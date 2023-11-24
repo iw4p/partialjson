@@ -32,7 +32,7 @@ class JSONParser:
             self.last_parse_reminding = reminding
             if self.on_extra_token and reminding:
                 self.on_extra_token(s, data, reminding)
-            return data
+            return json.dumps(data)
 
     def parse_any(self, s, e):
         if not s:
@@ -71,14 +71,26 @@ class JSONParser:
                 break
             key, s = self.parse_any(s, e)
             s = s.strip()
-            if s[0] != ':':
+
+            # Handle case where object ends after a key
+            if not s or s[0] == '}':
                 acc[key] = None
                 break
+
+            # Expecting a colon after the key
+            if s[0] != ':':
+                raise e  # or handle this scenario as per your requirement
+
             s = s[1:]  # skip ':'
             s = s.strip()
-            if not s:
+
+            # Handle case where value is missing or incomplete
+            if not s or s[0] in ',}':
                 acc[key] = None
+                if s.startswith(','):
+                    s = s[1:]
                 break
+
             value, s = self.parse_any(s, e)
             acc[key] = value
             s = s.strip()
@@ -92,7 +104,8 @@ class JSONParser:
         while end != -1 and s[end - 1] == '\\':  # Handle escaped quotes
             end = s.find('"', end + 1)
         if end == -1:
-            raise e
+            # Return the incomplete string without the opening quote
+            return s[1:], ""
         str_val = s[:end + 1]
         s = s[end + 1:]
         return json.loads(str_val), s
@@ -103,6 +116,8 @@ class JSONParser:
             i += 1
         num_str = s[:i]
         s = s[i:]
+        if not num_str or num_str.endswith('.') or num_str.endswith('-'):
+            return num_str, ""  # Return the incomplete number as is
         try:
             num = float(num_str) if '.' in num_str or 'e' in num_str or 'E' in num_str else int(num_str)
         except ValueError:
