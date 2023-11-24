@@ -124,12 +124,3 @@ class JSONParser:
             return None, s[4:]
         raise e
 
-# Test
-
-parser = JSONParser()
-
-json_string = '{"name": "John", "age": 30, "is_student": false, "courses": ["Math", "Science"]}'
-print("Testing with valid JSON string:", parser.parse(json_string))
-
-incomplete_json = '{"name": "John", "age": 30, "is_student": false, "courses": ["Math", "Science"'
-print("Testing with incomplete JSON string:", parser.parse(incomplete_json))

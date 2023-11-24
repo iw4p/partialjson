@@ -21,7 +21,7 @@ def get_property(prop):
 setup(
     name='partialjson',
     version=get_property('__version__'),
-    description='Parse incompleted or partial json',
+    description='Parse incomplete or partial json',
     long_description=README,
     long_description_content_type="text/markdown",
     url=get_property('__url__'),
