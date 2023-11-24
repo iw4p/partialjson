@@ -1,5 +1,5 @@
 import unittest
-from json_parser import JSONParser
+from partialjson.json_parser import JSONParser
 
 class TestJSONParser(unittest.TestCase):
     def setUp(self):
