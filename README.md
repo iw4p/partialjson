@@ -1,9 +1,11 @@
 # PartialJson
 
-## Parse Partial and incomplete JSON in python
-
 [![Partialjson](https://github.com/iw4p/partialjson/raw/main/images/partialjson.png
 )](https://pypi.org/project/partialjson/)
+
+## Parse Partial and incomplete JSON in python
+
+![](https://github.com/iw4p/partialjson/raw/main/images/partialjson.gif)
 
 ### Parse Partial and incomplete JSON in python with just 3 lines of python code.
 
