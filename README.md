@@ -18,7 +18,8 @@ from partialjson.json_parser import JSONParser
 parser = JSONParser()
 
 incomplete_json = '{"name": "John", "age": 30, "is_student": false, "courses": ["Math", "Science"'
-print("Testing with incomplete JSON string:", parser.parse(incomplete_json))
+print(parser.parse(incomplete_json))
+# {'name': 'John', 'age': 30, 'is_student': False, 'courses': ['Math', 'Science']}
 ```
 
 ### Installation
