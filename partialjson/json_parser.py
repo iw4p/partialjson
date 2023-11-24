@@ -25,14 +25,17 @@ class JSONParser:
         print('Parsed JSON with extra tokens:', {'text': text, 'data': data, 'reminding': reminding})
 
     def parse(self, s):
-        try:
-            return json.loads(s)
-        except json.JSONDecodeError as e:
-            data, reminding = self.parse_any(s, e)
-            self.last_parse_reminding = reminding
-            if self.on_extra_token and reminding:
-                self.on_extra_token(s, data, reminding)
-            return json.dumps(data)
+        if len(s) >= 1:
+            try:
+                return json.loads(s)
+            except json.JSONDecodeError as e:
+                data, reminding = self.parse_any(s, e)
+                self.last_parse_reminding = reminding
+                if self.on_extra_token and reminding:
+                    self.on_extra_token(s, data, reminding)
+                return json.dumps(data)
+        else:
+            return json.dumps({})
 
     def parse_any(self, s, e):
         if not s:
