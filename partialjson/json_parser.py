@@ -35,7 +35,7 @@ class JSONParser:
                     self.on_extra_token(s, data, reminding)
                 return json.loads(json.dumps(data))
         else:
-            return json.loads({})
+            return json.loads("{}")
 
     def parse_any(self, s, e):
         if not s:
