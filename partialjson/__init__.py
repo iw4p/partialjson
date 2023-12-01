@@ -5,7 +5,7 @@ A great wrapped library for downloading from torrent.
 """
 from .json_parser import JSONParser
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __author__ = 'Nima Akbarzadeh'
 __author_email__ = "iw4p@protonmail.com"
 __license__ = "MIT"
