@@ -8,11 +8,13 @@ incomplete_json = """
     {"web-app":
       {"servlet": [   
     {
-      "servlet-name3": "xyz",
-        "servlet-name4": null,
+      "number-one": 1.,
+      "number-two": 1.2,
+      "new-one": "xyz",
+        "servlet-name-null": null,
       
-                        "servlet-name2": true,
-      "servlet-name1": false,
+                        "servlet-name-true": true,
+      "servlet-name-false": false,
             "servlet-class": "org.cofax.cds.CDSServlet",
       "init-param": {
         

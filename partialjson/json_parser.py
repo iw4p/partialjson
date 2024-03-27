@@ -119,10 +119,13 @@ class JSONParser:
             i += 1
         num_str = s[:i]
         s = s[i:]
-        if not num_str or num_str.endswith('.') or num_str.endswith('-'):
-            return num_str, ""  # Return the incomplete number as is
+        if not num_str or num_str == "-" or num_str == ".":
+            return num_str, ""
         try:
-            num = float(num_str) if '.' in num_str or 'e' in num_str or 'E' in num_str else int(num_str)
+            if num_str.endswith('.'):
+                num = int(num_str[:-1])
+            else:
+                num = float(num_str) if '.' in num_str or 'e' in num_str or 'E' in num_str else int(num_str)
         except ValueError:
             raise e
         return num, s

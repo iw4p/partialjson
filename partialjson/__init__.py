@@ -5,7 +5,7 @@ Parsing ChatGPT JSON stream response — Partial and incomplete JSON parser pyth
 """
 from .json_parser import JSONParser
 
-__version__ = "0.0.6"
+__version__ = "0.0.7"
 __author__ = 'Nima Akbarzadeh'
 __author_email__ = "iw4p@protonmail.com"
 __license__ = "MIT"
