@@ -1,11 +1,11 @@
 """
-torrentp.
+Partial Json.
 
-A great wrapped library for downloading from torrent.
+Parsing ChatGPT JSON stream response — Partial and incomplete JSON parser python library for OpenAI
 """
 from .json_parser import JSONParser
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 __author__ = 'Nima Akbarzadeh'
 __author_email__ = "iw4p@protonmail.com"
 __license__ = "MIT"

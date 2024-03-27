@@ -128,17 +128,17 @@ class JSONParser:
         return num, s
 
     def parse_true(self, s, e):
-        if s.startswith('true'):
+        if s.startswith('t') or s.startswith('T'):
             return True, s[4:]
         raise e
 
     def parse_false(self, s, e):
-        if s.startswith('false'):
+        if s.startswith('f') or s.startswith('F'):
             return False, s[5:]
         raise e
 
     def parse_null(self, s, e):
-        if s.startswith('null'):
+        if s.startswith('n'):
             return None, s[4:]
         raise e
 
