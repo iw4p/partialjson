@@ -1,7 +1,18 @@
 from partialjson.json_parser import JSONParser
 import time, sys
 
-parser = JSONParser()
+parser_strict = JSONParser()
+parser_non_strict = JSONParser(strict=False)
+
+print("###### Strict Mode == True (Default) ######")
+print(parser_strict.parse('{"x": "1st line\\n2nd line').get('x'))
+print(parser_strict.parse('{"x": "1st line\\n2nd line"').get('x'))
+print(parser_strict.parse('{"x": "1st line\\n2nd line"}').get('x'))
+print("###### Strict Mode == False ######")
+print(parser_non_strict.parse('{"x": "1st line\\n2nd line').get('x'))
+print(parser_non_strict.parse('{"x": "1st line\\n2nd line"').get('x'))
+print(parser_non_strict.parse('{"x": "1st line\\n2nd line"}').get('x'))
+
 
 incomplete_json = """
 
@@ -111,6 +122,6 @@ json = ""
 for char in incomplete_json.strip():
     json += char
     print(f'\nIncomplete or streaming json:\n{json}')
-    print(f'Final and usable JSON without crashing:\n{parser.parse(json)}')
+    print(f'Final and usable JSON without crashing:\n{parser_strict.parse(json)}')
     sys.stdout.flush()
     time.sleep(0.01)

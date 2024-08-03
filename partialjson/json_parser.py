@@ -1,7 +1,8 @@
 import json
 
 class JSONParser:
-    def __init__(self):
+    def __init__(self, strict=True):
+        self.strict = strict
         self.parsers = {
             ' ': self.parse_space,
             '\r': self.parse_space,
@@ -14,7 +15,6 @@ class JSONParser:
             'f': self.parse_false,
             'n': self.parse_null
         }
-        # Adding parsers for numbers
         for c in '0123456789.-':
             self.parsers[c] = self.parse_number
 
@@ -33,7 +33,7 @@ class JSONParser:
                 self.last_parse_reminding = reminding
                 if self.on_extra_token and reminding:
                     self.on_extra_token(s, data, reminding)
-                return json.loads(json.dumps(data))
+                return data
         else:
             return json.loads("{}")
 
@@ -75,19 +75,16 @@ class JSONParser:
             key, s = self.parse_any(s, e)
             s = s.strip()
 
-            # Handle case where object ends after a key
             if not s or s[0] == '}':
                 acc[key] = None
                 break
 
-            # Expecting a colon after the key
             if s[0] != ':':
                 raise e  # or handle this scenario as per your requirement
 
             s = s[1:]  # skip ':'
             s = s.strip()
 
-            # Handle case where value is missing or incomplete
             if not s or s[0] in ',}':
                 acc[key] = None
                 if s.startswith(','):
@@ -107,10 +104,15 @@ class JSONParser:
         while end != -1 and s[end - 1] == '\\':  # Handle escaped quotes
             end = s.find('"', end + 1)
         if end == -1:
-            # Return the incomplete string without the opening quote
-            return s[1:], ""
+            # Incomplete string: handle it based on strict mode
+            if not self.strict:
+                return s[1:], ""
+            else:
+                return json.loads(f'"{s[1:]}"'), ""
         str_val = s[:end + 1]
         s = s[end + 1:]
+        if not self.strict:
+            return str_val[1:-1], s  # Remove surrounding quotes for strict mode
         return json.loads(str_val), s
 
     def parse_number(self, s, e):
@@ -144,4 +146,3 @@ class JSONParser:
         if s.startswith('n'):
             return None, s[4:]
         raise e
-
