@@ -1,6 +1,7 @@
 import unittest
 from partialjson.json_parser import JSONParser
 
+
 class TestJSONParser(unittest.TestCase):
     def setUp(self):
         self.parser_strict = JSONParser(strict=True)
@@ -9,24 +10,40 @@ class TestJSONParser(unittest.TestCase):
     # Test for parser_strict
     def test_parser_strict_incomplete_object(self):
         with self.assertRaises(Exception):
-            self.parser_strict.parse('{"x": "1st line\\n2nd line', '{"x": "1st line\\n2nd line"}')
-        
+            self.parser_strict.parse(
+                '{"x": "1st line\\n2nd line', '{"x": "1st line\\n2nd line"}'
+            )
+
     def test_parser_strict_incomplete_string(self):
         with self.assertRaises(Exception):
-            self.parser_strict.parse('{"x": "1st line\\n2nd line"', '{"x": "1st line\\n2nd line"}')
-        
+            self.parser_strict.parse(
+                '{"x": "1st line\\n2nd line"', '{"x": "1st line\\n2nd line"}'
+            )
+
     def test_parser_strict_complete_string(self):
-        self.assertEqual(self.parser_strict.parse('{"x": "1st line\\n2nd line"}').get('x'), "1st line\n2nd line")
+        self.assertEqual(
+            self.parser_strict.parse('{"x": "1st line\\n2nd line"}').get("x"),
+            "1st line\n2nd line",
+        )
 
     def test_parser_strict_incomplete_object(self):
-        self.assertEqual(self.parser_strict.parse('{"x": "1st line\\n2nd line').get('x'), "1st line\n2nd line")
-        
+        self.assertEqual(
+            self.parser_strict.parse('{"x": "1st line\\n2nd line').get("x"),
+            "1st line\n2nd line",
+        )
+
     def test_parser_strict_incomplete_string(self):
-        self.assertEqual(self.parser_strict.parse('{"x": "1st line\\n2nd line"').get('x'), "1st line\n2nd line")
-    
-    # Test for parser_non_strict    
+        self.assertEqual(
+            self.parser_strict.parse('{"x": "1st line\\n2nd line"').get("x"),
+            "1st line\n2nd line",
+        )
+
+    # Test for parser_non_strict
     def test_parser_non_strict_complete_string(self):
-        self.assertEqual(self.parser_non_strict.parse('{"x": "1st line\\n2nd line"}').get('x'), "1st line\n2nd line")
+        self.assertEqual(
+            self.parser_non_strict.parse('{"x": "1st line\\n2nd line"}').get("x"),
+            "1st line\n2nd line",
+        )
 
     # Existing tests can remain unchanged...
     # Number Tests
@@ -54,15 +71,15 @@ class TestJSONParser(unittest.TestCase):
 
     # String Tests
     def test_string(self):
-        self.assertEqual(self.parser_strict.parse('"I am text"'), 'I am text')
+        self.assertEqual(self.parser_strict.parse('"I am text"'), "I am text")
         self.assertEqual(self.parser_strict.parse('"I\'m text"'), "I'm text")
         self.assertEqual(self.parser_strict.parse('"I\\"m text"'), 'I"m text')
 
     def test_incomplete_string(self):
         with self.assertRaises(Exception):
-            self.parser_strict.parse('"I am text', 'I am text')
-            self.parser_strict.parse('"I\'m text', 'I\'m text')
-            self.parser_strict.parse('"I\\"m text', 'I\\m text')
+            self.parser_strict.parse('"I am text', "I am text")
+            self.parser_strict.parse("\"I'm text", "I'm text")
+            self.parser_strict.parse('"I\\"m text', "I\\m text")
 
     # Boolean Tests
     def test_boolean(self):
@@ -101,5 +118,19 @@ class TestJSONParser(unittest.TestCase):
         self.assertEqual(self.parser_strict.parse(" [1] "), [1])
         self.assertEqual(self.parser_strict.parse(" [1 "), [1])
 
-if __name__ == '__main__':
+    # Unicode Tests
+    def test_incomplete_unicode_escape(self):
+        with self.assertRaises(Exception):
+            self.parser_strict.parse('{"a":"\\', '{"a":"\\"')
+            self.parser_strict.parse('{"a":"\\u', '{"a":"\\u"')
+            self.parser_strict.parse('{"a":"\\u1', '{"a":"\\u1"')
+            self.parser_strict.parse('{"a":"\\u123', '{"a":"\\u123"')
+
+    def test_complete_unicode_escape(self):
+        self.assertEqual(self.parser_strict.parse('{"a":"\\u0041"}').get("a"), "A")
+        self.assertEqual(self.parser_strict.parse('{"a":"\\u00E9"}').get("a"), "é")
+        self.assertEqual(self.parser_strict.parse('{"a":"\\u20AC"}').get("a"), "€")
+
+
+if __name__ == "__main__":
     unittest.main()
