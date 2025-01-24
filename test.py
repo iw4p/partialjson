@@ -121,10 +121,10 @@ class TestJSONParser(unittest.TestCase):
     # Unicode Tests
     def test_incomplete_unicode_escape(self):
         with self.assertRaises(Exception):
-            self.parser_strict.parse('{"a":"\\', '{"a":"\\"')
-            self.parser_strict.parse('{"a":"\\u', '{"a":"\\u"')
-            self.parser_strict.parse('{"a":"\\u1', '{"a":"\\u1"')
-            self.parser_strict.parse('{"a":"\\u123', '{"a":"\\u123"')
+            self.parser_strict.parse('{"a":"\\', '{"a":""')
+            self.parser_strict.parse('{"a":"\\u', '{"a":""')
+            self.parser_strict.parse('{"a":"\\u1', '{"a":""')
+            self.parser_strict.parse('{"a":"\\u123', '{"a":"ሴ"')
 
     def test_complete_unicode_escape(self):
         self.assertEqual(self.parser_strict.parse('{"a":"\\u0041"}').get("a"), "A")

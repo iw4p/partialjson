@@ -117,14 +117,14 @@ class JSONParser:
                     return s[1:], ""
                 return s[1:], ""
             else:
-                # Check for incomplete escape sequences
+                # Handle incomplete escape sequences
                 if incomplete_escape_regex.match(s[1:]):
-                    return s[1:], ""
+                    return "", ""
                 # Attempt to parse the string without incomplete escape sequences
                 try:
                     return json.loads(f'"{s[1:]}"'), ""
                 except json.JSONDecodeError:
-                    return s[1:], ""
+                    return "", ""
         str_val = s[: end + 1]
         s = s[end + 1 :]
         if not self.strict:
