@@ -14,33 +14,30 @@ authors:
 affiliations:
   - name: Independent Researcher
     index: 1
-date: 2025-10-05
+date: 05 October 2025
 bibliography: paper.bib
 ---
 
 # Summary
 
-partialjson is a small Python library for extracting useful data from partial or incomplete JSON inputs, such as streaming responses from Large Language Models (LLMs) and truncated payloads. It is commonly used to parse the output of models from providers like OpenAI. The library recovers as much structure as possible while remaining faithful to JSON semantics, helping researchers and practitioners work with unreliable or progressive sources (e.g., HTTP chunked transfer, LLM token streams, and log tails).
+`partialjson` is a Python library for extracting useful data from partial or incomplete JSON [@rfc8259] inputs, such as streaming responses from Large Language Models (LLMs) and truncated payloads. It is commonly used to parse the output of models from providers like OpenAI and other streaming APIs. The library recovers as much structure as possible while remaining faithful to JSON semantics, helping researchers and practitioners work with unreliable or progressive data sources.
 
 # Statement of need
 
-Many data-centric research workflows increasingly consume JSON incrementally. A prominent use case is parsing streaming responses from LLMs, which often output JSON token by token but may be interrupted or malformed. Standard parsers reject these incomplete buffers, forcing researchers to build ad-hoc workarounds like buffering, regexes, or fragile state machines to repair the invalid JSON. partialjson provides a focused, lightweight solution: it parses arrays, objects, strings, numbers, booleans, and nulls from incomplete inputs and returns the maximal valid prefix. This enables early inspection, progress reporting, and robust ingestion pipelines for LLM outputs without bespoke parser code.
+JavaScript Object Notation (JSON) has become the de facto standard for data exchange in web APIs, scientific computing pipelines, and machine learning workflows [@rfc8259]. However, many modern applications consume JSON incrementally rather than as complete documents. A prominent use case is parsing streaming responses from Large Language Models (LLMs) such as GPT [@brown2020language], which often output JSON token by token but may be interrupted, rate-limited, or malformed. Similarly, real-time data pipelines, log processing systems, and chunked HTTP transfers frequently encounter partial JSON documents.
 
-# Functionality
+Standard JSON parsers, including Python's built-in `json` module [@python-json], reject incomplete buffers with parse errors, forcing researchers to build ad-hoc workarounds such as manual buffering, regular expressions, or fragile state machines to repair invalid JSON. Existing streaming JSON parsers like `ijson` [@ijson] focus on memory-efficient iteration over complete documents rather than recovery from incomplete inputs.
 
-partialjson exposes a simple factory‑style API to parse any incoming buffer and return Python data structures. It supports a strict mode for standards‑compliant behavior and a relaxed mode for pragmatic recovery of incomplete strings or numbers. Typical usage requires only a few lines of code and integrates with stream readers or callback loops. The library is pure‑Python with no runtime dependencies and works across supported CPython versions.
+`partialjson` addresses this gap by providing a lightweight, focused solution: it parses arrays, objects, strings, numbers, booleans, and nulls from incomplete inputs and returns the maximal valid prefix together with any remaining unparsed tail. This enables early inspection of partial results, progress reporting for long-running streams, and robust ingestion pipelines for LLM outputs without bespoke parser code. The library has been designed for use in research workflows involving streaming data analysis, interactive LLM applications, and real-time data processing.
 
-Key features:
+# Implementation
 
-- Parse incomplete objects and arrays, recovering maximal valid structure
-- Handle strings, numbers, booleans, and nulls with optional relaxed handling
-- Report remaining unparsed tail for resumed parsing
-- Minimal API and small footprint
+`partialjson` implements a recursive-descent parser that attempts standard JSON parsing first and falls back to incremental parsing when encountering incomplete input. The parser tracks the state of nested structures (objects and arrays) and applies recovery strategies based on a configurable strictness mode. In strict mode, the parser maintains JSON specification compliance [@rfc8259] while recovering from missing closing delimiters. In relaxed mode, it additionally handles incomplete escape sequences and embedded newlines that may appear in streaming contexts.
 
-See the project README for installation and examples.
+The implementation is pure Python with no runtime dependencies, ensuring easy integration into existing scientific Python environments. The library provides a simple API through a `JSONParser` class with configurable behavior and exposes the remaining unparsed tail for resumption in streaming scenarios.
 
 # Acknowledgements
 
-We thank open‑source JSON tooling and prior libraries that inspired streaming‑oriented parsing approaches.
+We thank the open-source JSON parsing community and prior libraries such as `ijson` [@ijson] that inspired streaming-oriented parsing approaches.
 
 # References
