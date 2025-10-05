@@ -47,6 +47,18 @@ Also can be found on [pypi](https://pypi.org/project/partialjson/)
 - Install the package by pip package manager.
 - After installing, you can use it and call the library.
 
+## Testing
+
+```bash
+pip install -e .
+pip install -r requirements-dev.txt
+pytest -q
+```
+
+## Citation
+
+If you use this software, please cite it using the metadata in `CITATION.cff`.
+
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=iw4p/partialjson&type=Date)](https://star-history.com/#iw4p/partialjson&Date)

@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+title: partialjson
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: Akbarzadeh
+    given-names: Nima
+    orcid: "https://orcid.org/0009-0005-8143-8083"
+repository-code: "https://github.com/iw4p/partialjson"
+keywords: [python, json, parsing, streaming]
+version: 1.0.0
+date-released: 2025-10-05
+
