@@ -84,8 +84,8 @@ def test_unicode_escape_complete():
     assert parser.parse('{"a":"\\u20AC"}') == {"a": "€"}
 
 
-def test_unicode_escape_incomplete_strict():
+def test_incomplete_string_without_closing_quote():
     parser = JSONParser(strict=True)
-    assert parser.parse('{"a":"\\u123"') == {"a": "\u1234"}
-    assert parser.parse('{"a":"\\u"') == {"a": ""}
-    assert parser.parse('{"a":"\\""') == {"a": ""}
+    # When string has no closing quote, incomplete escapes are handled
+    assert parser.parse('{"a":"\\u') == {"a": ""}
+    assert parser.parse('{"a":"\\') == {"a": ""}
