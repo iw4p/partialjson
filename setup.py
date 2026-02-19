@@ -31,4 +31,5 @@ setup(
     author_email=get_property("__author_email__"),
     license=get_property("__license__"),
     packages=["partialjson"],
+    extras_require={"json5": ["json5"]},
 )

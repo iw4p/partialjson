@@ -15,24 +15,39 @@
 ## Example
 
 ```python
-from partialjson.json_parser import JSONParser
+from partialjson import JSONParser
 parser = JSONParser()
 
 incomplete_json = '{"name": "John Doe", "age": 30, "is_student": false, "courses": ["Math", "Science"'
 print(parser.parse(incomplete_json))
-# {'name': 'John', 'age': 30, 'is_student': False, 'courses': ['Math', 'Science']}
+# {'name': 'John Doe', 'age': 30, 'is_student': False, 'courses': ['Math', 'Science']}
 ```
 
-Problem with `\n`? strict mode is here
+Problem with `\n`? Use `strict=False`:
 
 ```python
-from partialjson.json_parser import JSONParser
+from partialjson import JSONParser
 parser = JSONParser(strict=False)
 
 incomplete_json = '{"name": "John\nDoe", "age": 30, "is_student": false, "courses": ["Math", "Science"'
 print(parser.parse(incomplete_json))
 # {'name': 'John\nDoe', 'age': 30, 'is_student': False, 'courses': ['Math', 'Science']}
 ```
+
+### JSON5 support
+
+Use `create_json5_parser` or `JSONParser(json5_enabled=True)` for JSON5 (comments, unquoted keys, single quotes, etc.):
+
+```python
+from partialjson import create_json5_parser
+parser = create_json5_parser()
+
+incomplete_json5 = '{name: "Demo", version: 1.0, items: [1, 2, 3,]'
+print(parser.parse(incomplete_json5))
+# {'name': 'Demo', 'version': 1.0, 'items': [1, 2, 3]}
+```
+
+Install the optional `json5` dependency for full JSON5 support: `pip install partialjson[json5]`
 
 ### Installation
 
