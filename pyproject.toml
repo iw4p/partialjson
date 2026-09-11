@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "partialjson"
+dynamic = ["version"]
+description = "Parse incomplete or partial JSON, e.g. from a streaming LLM response"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Nima Akbarzadeh", email = "iw4p@protonmail.com" }]
+requires-python = ">=3.8"
+keywords = ["json", "partial", "incomplete", "streaming", "llm", "openai", "json5"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing",
+    "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+json5 = ["json5"]
+
+[project.urls]
+Homepage = "https://github.com/iw4p/partialjson"
+Repository = "https://github.com/iw4p/partialjson"
+Changelog = "https://github.com/iw4p/partialjson/blob/main/CHANGELOG.md"
+Issues = "https://github.com/iw4p/partialjson/issues"
+
+[tool.setuptools]
+packages = ["partialjson"]
+
+[tool.setuptools.package-data]
+partialjson = ["py.typed"]
+
+[tool.setuptools.dynamic]
+version = { attr = "partialjson.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+extend-exclude = ["tests/legacy_1_1_0_parser.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
+ignore = ["UP006", "UP007", "UP035", "UP045"]  # keep typing.* spellings for 3.8 runtime evaluation
