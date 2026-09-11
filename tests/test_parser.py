@@ -1,4 +1,5 @@
 import pytest
+
 from partialjson.json_parser import JSONParser
 
 
@@ -14,7 +15,7 @@ def test_numbers_and_floats():
 
 def test_invalid_number_raises_error():
     parser = JSONParser(strict=True)
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         parser.parse("1.2.3.4")
 
 
@@ -73,7 +74,7 @@ def test_spaces_and_extra_tokens():
 
 def test_invalid_input_raises_error():
     parser = JSONParser(strict=True)
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         parser.parse(":atom")
 
 

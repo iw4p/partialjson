@@ -47,7 +47,30 @@ print(parser.parse(incomplete_json5))
 # {'name': 'Demo', 'version': 1.0, 'items': [1, 2, 3]}
 ```
 
-Install the optional `json5` dependency for full JSON5 support: `pip install partialjson[json5]`
+The optional `json5` dependency speeds up parsing of complete JSON5 documents: `pip install partialjson[json5]`. Partial documents parse the same way with or without it.
+
+### What you get while a string is still streaming
+
+Text that has already arrived is returned; only what cannot be decided yet is held back. With `strict=True` (the default) escapes are decoded and an unfinished escape or half an emoji is dropped until it is complete:
+
+```python
+parser.parse('{"msg": "caf\\u00')        # {'msg': 'caf'}
+parser.parse('{"msg": "caf\\u00e9"')      # {'msg': 'café'}
+parser.parse('{"msg": "hi \\ud83d"')      # {'msg': 'hi '}
+parser.parse('{"msg": "hi \\ud83d\\ude00"')  # {'msg': 'hi 😀'}
+```
+
+With `strict=False` the raw text of an unfinished string is returned untouched, backslashes included.
+
+### Extra tokens
+
+If the input contains a complete value followed by more text, the value is returned and the callback passed as `on_extra_token` is called with the input, the value and the leftover text. The default callback prints to stdout; pass `on_extra_token=None` to silence it, or read `parser.last_parse_reminding` afterwards.
+
+```python
+parser = JSONParser(on_extra_token=None)
+parser.parse('{"a": 1} trailing')   # {'a': 1}
+parser.last_parse_reminding         # ' trailing'
+```
 
 ### Installation
 
@@ -65,10 +88,12 @@ Also can be found on [pypi](https://pypi.org/project/partialjson/)
 ## Testing
 
 ```bash
-pip install -e .
+pip install -e '.[json5]'
 pip install -r requirements-dev.txt
 pytest -q
 ```
+
+`tests/test_compat_1_1_0.py` runs the frozen 1.1.0 parser next to the current one over every prefix of a corpus of documents, so behaviour changes for existing users show up as test failures.
 
 ## Citation
 
@@ -88,7 +113,7 @@ Please refer to each project's style and contribution guidelines for submitting 
 
 1.  **Fork** the repo on GitHub
 2.  **Clone** the project to your own machine
-3.  **Update the Version** inside **init**.py
+3.  **Update the Version** inside `partialjson/__init__.py` and add a `CHANGELOG.md` entry
 4.  **Commit** changes to your own branch
 5.  **Push** your work back up to your fork
 6.  Submit a **Pull request** so that we can review your changes

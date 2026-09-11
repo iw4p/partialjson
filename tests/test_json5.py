@@ -1,6 +1,7 @@
-import pytest
 import math
+
 from partialjson.json_parser import JSONParser
+
 
 def test_json5_comments():
     parser = JSONParser(json5_enabled=True)
@@ -28,8 +29,8 @@ def test_json5_multi_line_strings():
 def test_json5_hex_numbers():
     parser = JSONParser(json5_enabled=True)
     assert parser.parse("0x1f") == 31
-    assert parser.parse("-0x10") == -16 # Note: JSON5 spec says hex can have optional sign
-    # Actually checking spec: "Hexadecimal numbers ... may be prefixed with an optional plus or minus sign"
+    # JSON5: hexadecimal numbers may be prefixed with an optional plus or minus sign.
+    assert parser.parse("-0x10") == -16
     assert parser.parse("0XFF") == 255
 
 def test_json5_special_numbers():

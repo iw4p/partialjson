@@ -1,346 +1,235 @@
-"""JSON5 parser - extends JSON with comments, unquoted keys, single quotes, etc."""
-import json
-import re
+"""JSON5 parser - extends JSON with comments, unquoted keys, single quotes, etc.
 
+Built on top of the JSON scanner in ``json_parser``; only the JSON5-specific
+pieces (whitespace and comments, identifiers, extra string escapes, hex and
+signed numbers, ``Infinity``/``NaN``, case-insensitive literals) are overridden.
+"""
+import json
+from types import ModuleType
+from typing import Any, ClassVar, FrozenSet, Optional, Tuple
+
+from .json_parser import (
+    _HEX,
+    _NO_KEY,
+    OnExtraToken,
+    ScanResult,
+    _default_on_extra_token,
+    _is_high_surrogate,
+    _is_low_surrogate,
+    _JSONParser,
+)
+
+json5: Optional[ModuleType]
 try:
     import json5
-except ImportError:
+except ImportError:  # pragma: no cover - exercised via monkeypatching in tests
     json5 = None
 
+__all__ = ["_default_on_extra_token", "create_json5_parser"]
 
-def create_json5_parser(strict=True, on_extra_token=None):
+_JSON5_WHITESPACE = "\v\f\u00A0\u2028\u2029\uFEFF"
+_LINE_TERMINATORS = "\n\r\u2028\u2029"
+_SIMPLE_ESCAPES = {
+    "b": "\b",
+    "f": "\f",
+    "n": "\n",
+    "r": "\r",
+    "t": "\t",
+    "v": "\v",
+    "0": "\0",
+}
+
+
+def create_json5_parser(
+    strict: bool = True, on_extra_token: Optional[OnExtraToken] = None
+) -> "_JSON5Parser":
     """Create a JSON5 parser."""
     return _JSON5Parser(strict=strict, on_extra_token=on_extra_token)
 
 
-def _default_on_extra_token(text, data, reminding):
-    print("Parsed JSON with extra tokens:", {"text": text, "data": data, "reminding": reminding})
+def _decode_json5_string(content: str) -> str:
+    """Decode the body of a JSON5 string literal (quotes already removed)."""
+    out = []
+    i = 0
+    n = len(content)
+    while i < n:
+        c = content[i]
+        if c != "\\":
+            out.append(c)
+            i += 1
+            continue
+        if i + 1 >= n:
+            raise ValueError("incomplete escape")
+        esc = content[i + 1]
+        if esc == "u":
+            hex4 = content[i + 2 : i + 6]
+            if len(hex4) < 4 or any(h not in _HEX for h in hex4):
+                raise ValueError("bad \\u escape")
+            code = int(hex4, 16)
+            i += 6
+            if _is_high_surrogate(hex4) and content[i : i + 2] == "\\u":
+                low = content[i + 2 : i + 6]
+                if len(low) == 4 and all(h in _HEX for h in low) and _is_low_surrogate(low):
+                    code = 0x10000 + ((code - 0xD800) << 10) + (int(low, 16) - 0xDC00)
+                    i += 6
+            out.append(chr(code))
+        elif esc == "x":
+            hex2 = content[i + 2 : i + 4]
+            if len(hex2) < 2 or any(h not in _HEX for h in hex2):
+                raise ValueError("bad \\x escape")
+            out.append(chr(int(hex2, 16)))
+            i += 4
+        elif esc == "\r":
+            i += 3 if content[i + 2 : i + 3] == "\n" else 2
+        elif esc in _LINE_TERMINATORS:
+            i += 2  # line continuation
+        elif esc in _SIMPLE_ESCAPES:
+            out.append(_SIMPLE_ESCAPES[esc])
+            i += 2
+        else:
+            out.append(esc)  # \' \" \\ \/ and any other escaped character
+            i += 2
+    return "".join(out)
 
 
-_INCOMPLETE_ESCAPE_REGEX = re.compile(r"^\\(?:u[0-9a-fA-F]{0,3}|x[0-9a-fA-F]{0,1})?$")
-_JSON5_WHITESPACE = "\v\f\u00A0\u2028\u2029\uFEFF"
-
-
-class _JSON5Parser:
+class _JSON5Parser(_JSONParser):
     """JSON5 parser with comments, unquoted keys, single quotes, hex, Infinity, etc."""
 
-    def __init__(self, strict=True, on_extra_token=None):
-        self.strict = strict
-        self.on_extra_token = on_extra_token or _default_on_extra_token
-        self.last_parse_reminding = None
-        self._parsers = self._build_parsers()
+    _VALUE_START: ClassVar[FrozenSet[str]] = frozenset("[{\"'tfnTFNI+0123456789.-")
 
-    def _build_parsers(self):
-        parsers = {
-            " ": self._parse_space,
-            "\r": self._parse_space,
-            "\n": self._parse_space,
-            "\t": self._parse_space,
-            "[": self._parse_array,
-            "{": self._parse_object,
-            '"': self._parse_string,
-            "'": self._parse_string,
-            "t": self._parse_true,
-            "f": self._parse_false,
-            "n": self._parse_null,
-            "/": self._parse_space,
-            "+": self._parse_number,
-            "I": self._parse_number,
-            "N": self._parse_n_literal,
-            "T": self._parse_true,
-            "F": self._parse_false,
-        }
-        for c in _JSON5_WHITESPACE:
-            parsers[c] = self._parse_space
-        for c in "0123456789.-":
-            parsers[c] = self._parse_number
-        return parsers
+    # ------------------------------------------------------------ fast path
 
-    def parse(self, s):
-        if len(s) >= 1:
-            if json5:
-                try:
-                    return json5.loads(s)
-                except (json.JSONDecodeError, ValueError) as e:
-                    data, reminding = self.parse_any(s, e)
-                    self.last_parse_reminding = reminding
-                    if self.on_extra_token and reminding:
-                        self.on_extra_token(s, data, reminding)
-                    return data
-            data, reminding = self.parse_any(s, json.JSONDecodeError("", "", 0))
-            self.last_parse_reminding = reminding
-            if self.on_extra_token and reminding:
-                self.on_extra_token(s, data, reminding)
-            return data
-        return json.loads("{}")
+    def _loads(self, s: str) -> Any:
+        try:
+            return json.loads(s)
+        except (json.JSONDecodeError, ValueError):
+            if json5 is None:
+                raise
+            return json5.loads(s)
 
-    def parse_any(self, s, e):
-        if not s:
-            raise e
-        while s and self._is_space_or_comment_start(s):
-            s = self._parse_space(s, e)
-        if not s:
-            return None, ""
-        parser = self._parsers.get(s[0])
-        if not parser:
-            raise e
-        return parser(s, e)
+    # ------------------------------------------------- whitespace & comments
 
-    def _is_space_or_comment_start(self, s):
-        if not s:
-            return False
-        c = s[0]
-        if c.isspace() or c in _JSON5_WHITESPACE:
-            return True
-        if s.startswith("//") or s.startswith("/*"):
-            return True
-        return False
+    def _is_space(self, s: str, i: int) -> bool:
+        c = s[i]
+        return c.isspace() or c in _JSON5_WHITESPACE
 
-    def _parse_space(self, s, e):
-        i = 0
-        while i < len(s):
-            if s[i].isspace() or s[i] in _JSON5_WHITESPACE:
+    def _skip_space(self, s: str, i: int) -> int:
+        n = len(s)
+        while i < n:
+            c = s[i]
+            if c.isspace() or c in _JSON5_WHITESPACE:
                 i += 1
-            elif s[i : i + 2] == "//":
-                i += 2
-                while i < len(s) and s[i] not in "\n\r\u2028\u2029":
-                    i += 1
-            elif s[i : i + 2] == "/*":
-                i += 2
-                end = s.find("*/", i)
-                if end == -1:
-                    return ""
-                i = end + 2
-            else:
-                break
-        return s[i:]
-
-    def _parse_array(self, s, e):
-        s = s[1:]
-        acc = []
-        while True:
-            while s and self._is_space_or_comment_start(s):
-                s = self._parse_space(s, e)
-            if not s:
-                break
-            if s[0] == "]":
-                s = s[1:]
-                break
-            res, s = self.parse_any(s, e)
-            acc.append(res)
-            while s and self._is_space_or_comment_start(s):
-                s = self._parse_space(s, e)
-            if s and s.startswith(","):
-                s = s[1:]
-        return acc, s
-
-    def _parse_object(self, s, e):
-        s = s[1:]
-        acc = {}
-        while True:
-            while s and self._is_space_or_comment_start(s):
-                s = self._parse_space(s, e)
-            if not s:
-                break
-            if s[0] == "}":
-                s = s[1:]
-                break
-            if s[0] not in '"\'':
-                key, s = self._parse_identifier(s, e)
-                if not key:
-                    while s and self._is_space_or_comment_start(s):
-                        s = self._parse_space(s, e)
-                    if s and s[0] == "}":
-                        s = s[1:]
+            elif c == "/":
+                if i + 1 >= n:
+                    return n  # a comment that has only streamed its first '/'
+                nxt = s[i + 1]
+                if nxt == "/":
+                    i += 2
+                    while i < n and s[i] not in _LINE_TERMINATORS:
+                        i += 1
+                elif nxt == "*":
+                    end = s.find("*/", i + 2)
+                    if end == -1:
+                        return n  # unterminated block comment swallows the rest
+                    i = end + 2
+                else:
                     break
             else:
-                key, s = self.parse_any(s, e)
-            while s and self._is_space_or_comment_start(s):
-                s = self._parse_space(s, e)
-            if not s or s[0] == "}":
-                if key is not None:
-                    acc[key] = None
-                if s and s[0] == "}":
-                    s = s[1:]
                 break
-            if s[0] != ":":
-                if key is not None:
-                    acc[key] = None
-                break
-            s = s[1:]
-            while s and self._is_space_or_comment_start(s):
-                s = self._parse_space(s, e)
-            if not s or s[0] in ",}":
-                acc[key] = None
-                if s and s.startswith(","):
-                    s = s[1:]
-                elif s and s.startswith("}"):
-                    s = s[1:]
-                break
-            while s and self._is_space_or_comment_start(s):
-                s = self._parse_space(s, e)
-            if s and (
-                s[0] in self._parsers
-                or s[0] in "/+IN"
-                or s[0] in _JSON5_WHITESPACE
-            ):
-                value, s = self.parse_any(s, e)
-                acc[key] = value
-            else:
-                if key is not None:
-                    acc[key] = None
-                break
-            while s and self._is_space_or_comment_start(s):
-                s = self._parse_space(s, e)
-            if s and s.startswith(","):
-                s = s[1:]
-        return acc, s
+        return i
 
-    def _parse_identifier(self, s, e):
-        i = 0
-        while i < len(s) and (s[i].isalnum() or s[i] in "_$"):
-            i += 1
-        return s[:i], s[i:]
+    # --------------------------------------------------------------- values
 
-    def _parse_string(self, s, e):
-        quote = s[0]
-        end = 1
-        while end < len(s):
-            if s[end] == "\\":
-                end += 2
-                continue
-            if s[end] == quote:
-                break
-            end += 1
+    def _scan_value(self, s: str, i: int, e: BaseException) -> ScanResult:
+        c = s[i]
+        if c == "'":
+            return self._scan_string(s, i, e)
+        if c in "tT":
+            return self._scan_literal(s, i, "true", True, e)
+        if c in "fF":
+            return self._scan_literal(s, i, "false", False, e)
+        if c == "n":
+            return self._scan_literal(s, i, "null", None, e)
+        if c == "N":
+            return self._scan_n_literal(s, i, e)
+        if c in "+I":
+            return self._scan_number(s, i, e)
+        return super()._scan_value(s, i, e)
 
-        if end >= len(s):
-            content = s[1:]
-            if not self.strict:
-                return content, ""
-            if _INCOMPLETE_ESCAPE_REGEX.match(content):
-                return "", ""
-            try:
-                if quote == "'":
-                    return content, ""
-                return json.loads(f'"{content}"'), ""
-            except json.JSONDecodeError:
-                return "", ""
+    def _scan_key(self, s: str, i: int, e: BaseException) -> ScanResult:
+        if s[i] in "\"'":
+            return self._scan_string(s, i, e)
+        n = len(s)
+        j = i
+        while j < n and (s[j].isalnum() or s[j] in "_$"):
+            j += 1
+        if j == i:
+            return _NO_KEY, i
+        return s[i:j], j
 
-        str_val = s[: end + 1]
-        remainder = s[end + 1 :]
+    # -------------------------------------------------------------- strings
 
-        if json5:
-            try:
-                return json5.loads(str_val), remainder
-            except Exception:
-                pass
+    def _scan_extra_escape(self, s: str, j: int, n: int) -> Tuple[bool, int]:
+        esc = s[j + 1]
+        if esc == "x":
+            hex2 = s[j + 2 : j + 4]
+            if all(h in _HEX for h in hex2):
+                if len(hex2) < 2:
+                    return True, 0  # \x or \xA at the end of the input
+                return False, 4
+            return False, 2
+        if esc == "\r" and s[j + 2 : j + 3] == "\n":
+            return False, 3
+        return False, 2
 
-        decoded = str_val[1:-1]
-        decoded = re.sub(r"\\\n", "", decoded)
-        decoded = re.sub(r"\\\r\n", "", decoded)
-
-        def replace_hex(match):
-            return chr(int(match.group(1), 16))
-
-        decoded = re.sub(r"\\x([0-9a-fA-F]{2})", replace_hex, decoded)
-
-        if quote == "'":
-            decoded = decoded.replace('"', '\\"').replace("\\'", "'")
-            try:
-                return json.loads(f'"{decoded}"'), remainder
-            except Exception:
-                return decoded, remainder
-        if "\\x" in decoded or "\\\n" in str_val or "\\\r" in str_val:
-            return decoded, remainder
+    def _decode_incomplete(self, quote: str, content: str) -> Any:
         try:
-            return json.loads(str_val), remainder
-        except Exception:
-            return decoded, remainder
-
-    def _parse_number(self, s, e):
-        if s.startswith(("-0x", "-0X")):
-            i = 3
-            while i < len(s) and s[i] in "0123456789abcdefABCDEF":
-                i += 1
-            num_str = s[1:i]
-            remainder = s[i:]
-            if len(num_str) <= 2:
-                return s[:3], ""
-            return -int(num_str, 16), remainder
-        if s.startswith(("+0x", "+0X")):
-            i = 3
-            while i < len(s) and s[i] in "0123456789abcdefABCDEF":
-                i += 1
-            num_str = s[1:i]
-            remainder = s[i:]
-            if len(num_str) <= 2:
-                return s[:3], ""
-            return int(num_str, 16), remainder
-        if s.startswith(("0x", "0X")):
-            i = 2
-            while i < len(s) and s[i] in "0123456789abcdefABCDEF":
-                i += 1
-            num_str = s[:i]
-            remainder = s[i:]
-            if len(num_str) <= 2:
-                return num_str, ""
-            return int(num_str, 16), remainder
-
-        for literal, val in [("Infinity", float("inf")), ("NaN", float("nan"))]:
-            if s.startswith(literal):
-                return val, s[len(literal) :]
-            if s.startswith("+" + literal):
-                return val, s[len(literal) + 1 :]
-            if s.startswith("-" + literal):
-                return -val if literal == "Infinity" else val, s[len(literal) + 1 :]
-
-        if s.startswith(".") and len(s) > 1 and s[1].isdigit():
-            i = 1
-            while i < len(s) and s[i].isdigit():
-                i += 1
-            num_str = s[:i]
-            return float(num_str), s[i:]
-
-        if s.startswith("+"):
-            res, remainder = self._parse_number(s[1:], e)
-            return res, remainder
-
-        i = 0
-        while i < len(s) and s[i] in "0123456789.-":
-            i += 1
-        num_str = s[:i]
-        s = s[i:]
-        if not num_str or num_str == "-" or num_str == ".":
-            return num_str, ""
-        try:
-            if num_str.endswith("."):
-                num = int(num_str[:-1])
-            else:
-                num = (
-                    float(num_str)
-                    if "." in num_str or "e" in num_str or "E" in num_str
-                    else int(num_str)
-                )
+            return _decode_json5_string(content)
         except ValueError:
-            raise e
-        return num, s
+            return ""
 
-    def _parse_n_literal(self, s, e):
-        if s.lower().startswith("nan"):
-            return self._parse_number(s, e)
-        return self._parse_null(s, e)
+    def _decode_complete(self, literal: str, quote: str) -> Any:
+        try:
+            return _decode_json5_string(literal[1:-1])
+        except ValueError:
+            return literal[1:-1]
 
-    def _parse_true(self, s, e):
-        if s.lower().startswith("true"):
-            return True, s[4:]
-        raise e
+    # -------------------------------------------------------------- numbers
 
-    def _parse_false(self, s, e):
-        if s.lower().startswith("false"):
-            return False, s[5:]
-        raise e
+    def _scan_number(self, s: str, i: int, e: BaseException) -> ScanResult:
+        n = len(s)
+        sign = 1
+        j = i
+        if s[j] in "+-":
+            sign = -1 if s[j] == "-" else 1
+            j += 1
+        if s[j : j + 2] in ("0x", "0X"):
+            k = j + 2
+            while k < n and s[k] in _HEX:
+                k += 1
+            if k == j + 2:
+                return s[i:k], n  # "0x" with no digits yet
+            return sign * int(s[j + 2 : k], 16), k
+        for word, value in (("Infinity", float("inf")), ("NaN", float("nan"))):
+            k = self._literal_matches(s, j, word)
+            if k and (k == len(word) or j + k >= n):
+                return sign * value, j + k
+        if s[i] == "+":
+            if j >= n:
+                return "+", n
+            return super()._scan_number(s, j, e)
+        return super()._scan_number(s, i, e)
 
-    def _parse_null(self, s, e):
-        if s.lower().startswith("null"):
-            return None, s[4:]
-        raise e
+    # ------------------------------------------------------------- literals
+
+    def _literal_matches(self, s: str, i: int, word: str) -> int:
+        n = len(s)
+        k = 0
+        while i + k < n and k < len(word) and s[i + k].lower() == word[k].lower():
+            k += 1
+        return k
+
+    def _scan_n_literal(self, s: str, i: int, e: BaseException) -> ScanResult:
+        if s[i + 1 : i + 2].lower() == "a":
+            return self._scan_number(s, i, e)
+        return self._scan_literal(s, i, "null", None, e)
